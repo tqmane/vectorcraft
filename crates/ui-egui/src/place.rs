@@ -104,6 +104,15 @@ pub fn run(app: &mut VectorcraftApp, p: &Value) -> Result<Value, String> {
 
 /// Pick files to place: the Place dialog opens with them (on the web once they arrive).
 fn pick(app: &mut VectorcraftApp) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    let _android_resume = {
+        rfd::resume_with(move |app: &mut crate::VectorcraftApp| {
+            if let Err(e) = pick(app) {
+                rfd::report_error(&e);
+            }
+        })
+    };
+
     if let Some(f) = app.services.place_async.as_mut() {
         f();
         return Ok(());

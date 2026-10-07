@@ -430,6 +430,8 @@ impl VectorcraftApp {
 
     /// Run a UI or engine command by id. The single entry point for every frontend path.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+        #[cfg(target_os = "android")]
+        let _android_command = rfd::command(id, params.clone());
         if let Some(r) = menus::run_ui_command(self, id, &params) {
             return r;
         }
@@ -662,6 +664,20 @@ impl VectorcraftApp {
     /// Per-frame logic before layout (control channel, shortcuts, inbox). A bug that panics costs
     /// one frame and shows an error, instead of closing the app with unsaved work.
     pub fn logic(&mut self, ctx: &egui::Context) {
+        #[cfg(target_os = "android")]
+        if let Some((id, params)) = rfd::completed_command(ctx)
+            && let Err(e) = self.run(&id, params)
+        {
+            rfd::report_error(&e);
+        }
+        #[cfg(target_os = "android")]
+        if let Some(callback) = rfd::take_callback::<Self>() {
+            callback(self);
+        }
+        #[cfg(target_os = "android")]
+        if rfd::dialog_pending() {
+            return;
+        }
         if let Err(msg) = vectorcraft_engine::guard::catch_panic(|| self.logic_frame(ctx)) {
             self.status(format!("Internal error: {msg} (please report this bug)"));
         }
@@ -857,3 +873,6 @@ impl VectorcraftApp {
         let _ = json!(null);
     }
 }
+
+#[cfg(target_os = "android")]
+extern crate craft_android as rfd;

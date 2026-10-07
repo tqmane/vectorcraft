@@ -114,6 +114,14 @@ fn report(app: &mut VectorcraftApp, r: Result<Value, String>, done: impl FnOnce(
 
 /// Relink images `ids` to a picked file.
 pub(crate) fn relink(app: &mut VectorcraftApp, ids: Vec<u64>) {
+    #[cfg(target_os = "android")]
+    let _android_resume = {
+        let ids = ids.clone();
+        rfd::resume_with(move |app: &mut crate::VectorcraftApp| {
+            relink(app, ids.clone());
+        })
+    };
+
     let pick = crate::FilePick { filters: vectorcraft_engine::cmd::fileio::place_filters().collect(), ..Default::default() };
     let Some(path) = app.services.pick_open.as_mut().and_then(|f| f(&pick)) else { return };
     let r = app.run("links.relink", json!({ "ids": ids, "path": path }));
@@ -122,6 +130,14 @@ pub(crate) fn relink(app: &mut VectorcraftApp, ids: Vec<u64>) {
 
 /// Relink images `ids` (none: every missing one) to the files of their names in a picked folder.
 fn relink_to_folder(app: &mut VectorcraftApp, ids: Vec<u64>) {
+    #[cfg(target_os = "android")]
+    let _android_resume = {
+        let ids = ids.clone();
+        rfd::resume_with(move |app: &mut crate::VectorcraftApp| {
+            relink_to_folder(app, ids.clone());
+        })
+    };
+
     let Some(folder) = app.services.pick_folder.as_mut().and_then(|f| f()) else { return };
     let ids = Some(ids).filter(|i| !i.is_empty());
     let r = app.run("links.relink", json!({ "ids": ids, "folder": folder }));
@@ -144,6 +160,14 @@ pub(crate) fn go_to(app: &mut VectorcraftApp, id: u64) {
 
 /// Write embedded image `id` to a picked file (the web downloads it) and link it there.
 pub(crate) fn unembed(app: &mut VectorcraftApp, id: u64, name: &str) {
+    #[cfg(target_os = "android")]
+    let _android_resume = {
+        let name = name.to_string();
+        rfd::resume_with(move |app: &mut crate::VectorcraftApp| {
+            unembed(app, id, &name);
+        })
+    };
+
     if let Some(dl) = app.services.download.as_mut() {
         if let Ok(v) = app.session.execute("links.unembed", &json!({ "id": id }))
             && let (Some(name), Some(bytes)) = (v["name"].as_str(), v["dataBase64"].as_str().and_then(vectorcraft_format::base64_decode))

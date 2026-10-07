@@ -47,6 +47,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("format", Class::Layer(3)),
     ("tools", Class::Layer(4)),
     ("engine", Class::Layer(5)),
+    ("craft-android", Class::Layer(6)),
     ("ui-egui", Class::Layer(6)),
     ("mcp", Class::Layer(6)),
     ("testkit", Class::Testkit),
@@ -67,8 +68,15 @@ pub const TABLE: &[(&str, Class)] = &[
 /// `geom`, which the §3 diagram draws on one line. The GPU backend (`gpu`)
 /// reuses the CPU reference (`compose`) for LUTs and parity tests. EPS previews use the renderer's
 /// TIFF writer. Live effects run effect plug-ins.
-pub const INTRA_LAYER_ORDER: &[&[&str]] =
-    &[&["geom", "color"], &["pathops", "effects"], &["pathops", "trace"], &["text", "effects"], &["render", "eps"], &["plugins", "effects"]];
+pub const INTRA_LAYER_ORDER: &[&[&str]] = &[
+    &["craft-android", "ui-egui"],
+    &["geom", "color"],
+    &["pathops", "effects"],
+    &["pathops", "trace"],
+    &["text", "effects"],
+    &["render", "eps"],
+    &["plugins", "effects"],
+];
 
 fn intra_layer_allowed(from: &str, to: &str) -> bool {
     let (from, to) = (short_name(from), short_name(to));

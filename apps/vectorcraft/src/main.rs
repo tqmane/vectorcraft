@@ -38,6 +38,21 @@ impl eframe::App for App {
         }
     }
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+        #[cfg(target_os = "android")]
+        if let Some(pen) = rfd::stylus_input(_ctx, raw) {
+            let key = egui::Id::new("android.previous-eraser-tool");
+            if !self.0.session.tool_busy() {
+                if pen.eraser && self.0.session.tool_id() != "eraser" {
+                    _ctx.data_mut(|d| d.insert_temp(key, self.0.session.tool_id().to_string()));
+                    let _ = self.0.run("tool.select", serde_json::json!({"tool": "eraser"}));
+                } else if !pen.eraser
+                    && let Some(tool) = _ctx.data_mut(|d| d.remove_temp::<String>(key))
+                    && self.0.session.tool_id() == "eraser"
+                {
+                    let _ = self.0.run("tool.select", serde_json::json!({"tool": tool}));
+                }
+            }
+        }
         self.0.raw_input_hook(raw);
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -140,7 +155,14 @@ fn file_dialog(pick: &FilePick) -> rfd::FileDialog {
 
 /// File → Show in Folder: select `path` in Finder / Explorer, or open its folder elsewhere.
 fn reveal(path: &str) -> Result<(), String> {
-    reveal_command(path).spawn().map(|_| ()).map_err(|e| format!("can't show {path}: {e}"))
+    #[cfg(target_os = "android")]
+    {
+        rfd::reveal(path)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        reveal_command(path).spawn().map(|_| ()).map_err(|e| format!("can't show {path}: {e}"))
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -160,7 +182,7 @@ fn reveal_command(path: &str) -> std::process::Command {
     c
 }
 
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "android")))]
 fn reveal_command(path: &str) -> std::process::Command {
     let folder = std::path::Path::new(path).parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
     let mut c = std::process::Command::new("xdg-open");
@@ -170,7 +192,10 @@ fn reveal_command(path: &str) -> std::process::Command {
 
 /// Write a file the safe way: a failed write keeps the old file ([`fileio::write_atomic`]).
 fn write_file(path: &str, bytes: &[u8]) -> Result<(), String> {
-    fileio::write_atomic(std::path::Path::new(path), bytes).map_err(|e| e.to_string())
+    fileio::write_atomic(std::path::Path::new(path), bytes).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "android")]
+    rfd::publish_file(std::path::Path::new(path))?;
+    Ok(())
 }
 
 fn services() -> Services {
@@ -214,20 +239,27 @@ fn services() -> Services {
 
 /// Edit Original, Show Package: open `path` (a file or a folder) in the system's default app for it.
 fn open_file(path: &str) -> Result<(), String> {
-    #[cfg(windows)]
-    let mut c = {
-        use std::os::windows::process::CommandExt as _;
-        let mut c = std::process::Command::new("explorer");
-        c.raw_arg(format!("\"{}\"", path.replace('/', "\\")));
-        c
-    };
-    #[cfg(target_os = "macos")]
-    let mut c = std::process::Command::new("open");
-    #[cfg(not(any(target_os = "macos", windows)))]
-    let mut c = std::process::Command::new("xdg-open");
-    #[cfg(not(windows))]
-    c.arg(path);
-    c.spawn().map(|_| ()).map_err(|e| format!("can't open {path}: {e}"))
+    #[cfg(target_os = "android")]
+    {
+        rfd::that(path)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        #[cfg(windows)]
+        let mut c = {
+            use std::os::windows::process::CommandExt as _;
+            let mut c = std::process::Command::new("explorer");
+            c.raw_arg(format!("\"{}\"", path.replace('/', "\\")));
+            c
+        };
+        #[cfg(target_os = "macos")]
+        let mut c = std::process::Command::new("open");
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut c = std::process::Command::new("xdg-open");
+        #[cfg(not(windows))]
+        c.arg(path);
+        c.spawn().map(|_| ()).map_err(|e| format!("can't open {path}: {e}"))
+    }
 }
 
 /// The window, Dock, taskbar and app-switcher icon (`assets/app-icon/`, see its README). macOS gets
@@ -245,11 +277,11 @@ fn app_icon() -> egui::IconData {
 /// macOS keeps its traffic lights over the integrated title strip.
 const CUSTOM_TITLEBAR: bool = !cfg!(target_os = "macos");
 
-fn main() -> eframe::Result {
+pub fn main() -> eframe::Result {
     vectorcraft_ui_egui::i18n::detect_system_lang_in_background();
     let mut control_port: Option<u16> = std::env::var("VECTORCRAFT_CONTROL_PORT").ok().and_then(|p| p.parse().ok());
     let mut files = Vec::new();
-    let mut args = std::env::args().skip(1);
+    let mut args = app_args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--control" => control_port = args.next().and_then(|p| p.parse().ok()),
@@ -263,6 +295,8 @@ fn main() -> eframe::Result {
     let saved = read_prefs();
     let saved_window = saved.as_ref().and_then(|ui| ui.window);
     let options = eframe::NativeOptions {
+        #[cfg(target_os = "android")]
+        android_app: rfd::android_app(),
         viewport: egui::ViewportBuilder::default()
             .with_title("VectorCraft")
             .with_inner_size(window::DEFAULT_SIZE)
@@ -278,7 +312,7 @@ fn main() -> eframe::Result {
     };
     eframe::run_native(
         "VectorCraft",
-        options,
+        platform_options(options),
         Box::new(move |cc| {
             let mut app = VectorcraftApp::new(Session::new(), services());
             load_prefs(&mut app, saved);
@@ -315,4 +349,39 @@ fn main() -> eframe::Result {
             )))
         }),
     )
+}
+
+#[cfg(target_os = "android")]
+#[allow(unsafe_code)] // Android's loader requires this exact exported entry-point symbol.
+#[unsafe(no_mangle)]
+pub fn android_main(app: rfd::AndroidApp) {
+    if let Err(error) = rfd::initialize(app) {
+        eprintln!("Android initialization failed: {error}");
+        return;
+    }
+    if let Err(error) = main() {
+        rfd::report_error(&format!("Application failed: {error}"));
+    }
+}
+
+#[cfg(target_os = "android")]
+extern crate craft_android as arboard;
+#[cfg(target_os = "android")]
+extern crate craft_android as rfd;
+
+fn platform_options(options: eframe::NativeOptions) -> eframe::NativeOptions {
+    #[cfg(target_os = "android")]
+    let options = rfd::configure_options(options);
+    options
+}
+
+fn app_args() -> impl Iterator<Item = String> {
+    #[cfg(not(target_os = "android"))]
+    {
+        std::env::args()
+    }
+    #[cfg(target_os = "android")]
+    {
+        rfd::arguments().into_iter()
+    }
 }

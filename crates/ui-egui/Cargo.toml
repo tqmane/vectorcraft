@@ -33,3 +33,6 @@ log = { workspace = true }
 [dev-dependencies]
 vectorcraft-testkit = { workspace = true }
 wat = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+craft-android = { path = "../../platform/android" }

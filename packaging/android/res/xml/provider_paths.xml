@@ -1,0 +1,6 @@
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="documents" path="Documents/" />
+    <files-path name="pictures" path="Pictures/" />
+    <files-path name="clipboard" path="Clipboard/" />
+    <cache-path name="exports" path="." />
+</paths>

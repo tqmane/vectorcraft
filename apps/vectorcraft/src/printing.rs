@@ -3,7 +3,9 @@
 //! PDF); Windows asks PowerShell for the printers and prints through the shell's print verb of
 //! the PDF viewer.
 
+#[cfg(not(target_os = "android"))]
 use std::path::PathBuf;
+#[cfg(not(target_os = "android"))]
 use std::process::Command;
 
 use vectorcraft_ui_egui::print::{PrintJob, PrintService, Printer};
@@ -13,27 +15,42 @@ pub struct SystemPrint;
 
 impl PrintService for SystemPrint {
     fn printers(&mut self) -> Vec<Printer> {
+        #[cfg(target_os = "android")]
+        return vec![Printer { name: "Android print services".into(), default: true }];
+        #[cfg(not(target_os = "android"))]
         system::printers()
     }
 
     fn print(&mut self, job: &PrintJob) -> Result<String, String> {
-        let file = job_file(job.pdf)?;
-        let r = system::print(job, &file);
-        let to = job.printer.unwrap_or("the default printer");
-        r.map(|note| format!("Sent “{}” to {to}{note}", job.title))
+        #[cfg(target_os = "android")]
+        return rfd::print_pdf(job.pdf, job.title, false, 0);
+        #[cfg(not(target_os = "android"))]
+        {
+            let file = job_file(job.pdf)?;
+            let r = system::print(job, &file);
+            let to = job.printer.unwrap_or("the default printer");
+            r.map(|note| format!("Sent “{}” to {to}{note}", job.title))
+        }
     }
 
     fn has_setup(&self) -> bool {
-        true
+        !cfg!(target_os = "android")
     }
 
     fn setup(&mut self, printer: Option<&str>) -> Result<(), String> {
+        #[cfg(target_os = "android")]
+        {
+            let _ = printer;
+            Err("Choose the printer in the Android print dialog".into())
+        }
+        #[cfg(not(target_os = "android"))]
         system::setup(printer)
     }
 }
 
 /// Where a job's PDF waits for the spooler: a fresh file in the temp folder. Files of jobs more
 /// than an hour old (the print verb reads them after Print returns) are removed first.
+#[cfg(not(target_os = "android"))]
 fn job_file(pdf: &[u8]) -> Result<PathBuf, String> {
     let dir = std::env::temp_dir().join("vectorcraft-print");
     std::fs::create_dir_all(&dir).map_err(|e| format!("can't make {}: {e}", dir.display()))?;
@@ -51,6 +68,7 @@ fn job_file(pdf: &[u8]) -> Result<PathBuf, String> {
 }
 
 /// Run `c` → its output, or its error message.
+#[cfg(not(target_os = "android"))]
 fn output(c: &mut Command) -> Result<String, String> {
     let program = c.get_program().to_string_lossy().to_string();
     let out = c.output().map_err(|e| format!("can't run {program}: {e}"))?;
@@ -62,7 +80,7 @@ fn output(c: &mut Command) -> Result<String, String> {
 }
 
 /// `lpstat -e` / `lpstat -a` → the printer names (the first word of each line).
-#[cfg(any(test, not(windows)))]
+#[cfg(any(test, all(not(windows), not(target_os = "android"))))]
 fn lpstat_names(text: &str) -> Vec<String> {
     let mut names: Vec<String> = vec![];
     for name in text.lines().filter_map(|l| l.split_whitespace().next()) {
@@ -75,7 +93,7 @@ fn lpstat_names(text: &str) -> Vec<String> {
 
 /// `lpstat -d` → the default printer ("system default destination: NAME"; none: "no system
 /// default destination").
-#[cfg(any(test, not(windows)))]
+#[cfg(any(test, all(not(windows), not(target_os = "android"))))]
 fn lpstat_default(text: &str) -> Option<String> {
     let line = text.lines().find(|l| l.contains(':'))?;
     let name = line.rsplit_once(':')?.1.trim();
@@ -98,7 +116,7 @@ fn ps_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "android")))]
 mod system {
     use super::*;
 

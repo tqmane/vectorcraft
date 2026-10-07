@@ -104,7 +104,9 @@ fn pen_pressure(ui: &Ui, pressed: bool) -> f32 {
     let id = egui::Id::new("canvas-pressure");
     let force = ui.input(|i| {
         i.events.iter().rev().find_map(|e| match e {
-            egui::Event::Touch { force: Some(f), .. } if f.is_finite() => Some(f.clamp(0.0, 1.0)),
+            egui::Event::Touch { phase: egui::TouchPhase::Start | egui::TouchPhase::Move, force: Some(f), .. } if f.is_finite() => {
+                Some(f.clamp(0.0, 1.0))
+            }
             _ => None,
         })
     });

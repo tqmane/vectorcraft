@@ -323,3 +323,12 @@ Generated-in-code art is original and has no file to list. This covers the defau
 | `examples/neon-drive.vectorcraft` | VectorCraft contributors | Original artwork built through the VectorCraft command API | MIT OR Apache-2.0 |  |
 | `examples/ribbons.vectorcraft` | VectorCraft contributors | Original artwork built through the VectorCraft command API | MIT OR Apache-2.0 |  |
 | `examples/feature-sheet.vectorcraft` | VectorCraft contributors | Original artwork built through the VectorCraft command API | MIT OR Apache-2.0 |  |
+
+## Android packaging assets
+
+| Path | Title | Author | Source | License |
+|---|---|---|---|---|
+| `packaging/android/res/` | Android themes, provider paths and adaptive-icon wrapper | VectorCraft Android contributors | Original work | MIT OR Apache-2.0; repository LICENSE-MIT / LICENSE-APACHE |
+| Generated `craft_icon.png`, `craft_monochrome.xml`, `craft-icon.xml` | Android launcher icon and silhouette | Original application-icon author (see `assets/app-icon/`) | Existing `assets/app-icon/vectorcraft-small.svg` and PNG | Same as `assets/app-icon/LICENSE.txt`; geometry/color preserved |
+
+The APK includes asset/font/dependency license texts under `assets/licenses`. Restricted ArtCraft brand artwork is excluded from Android UI code; upstream source copies retain their original license.

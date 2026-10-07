@@ -6,8 +6,8 @@ license.workspace = true
 publish = false
 default-run = "vectorcraft"
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "deny"
 
 [dependencies]
 vectorcraft-engine = { workspace = true }
@@ -18,8 +18,6 @@ serde_json = { workspace = true }
 log = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rfd = { workspace = true }
-arboard = { workspace = true, features = ["image-data"] }
 image = { workspace = true }
 webbrowser = { workspace = true }
 # The window's monitors, size and position (the same winit eframe runs on).
@@ -36,3 +34,24 @@ objc2-app-kit = { version = "0.3", default-features = false, features = ["std", 
 [build-dependencies]
 # Icon + VERSIONINFO for vectorcraft.exe; build.rs only uses it when targeting Windows.
 winresource = "0.1"
+
+[lib]
+path = "src/main.rs"
+crate-type = ["cdylib"]
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))'.dependencies]
+rfd = { workspace = true }
+arboard = { workspace = true, features = ["image-data"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+craft-android = { package = "craft-android", path = "../../platform/android" }
+eframe = { workspace = true, features = ["android-game-activity"] }
+
+[lints.clippy]
+dbg_macro = "warn"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"

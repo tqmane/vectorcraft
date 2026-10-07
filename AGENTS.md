@@ -55,3 +55,7 @@ Formerly **DrawCraft** (renamed 2026-10-01): old `.drawcraft` files and `"format
 - When a task lands, update it in the same PR: the milestone row, the parity-table row (score, missing items, hours), "Shipped so far", and the gap list if the gap closed or shrank.
 - Grade by behaviour against `plan/illustrator/`, not by whether a menu item exists. Scores are self-assessed, so err low.
 - Keep the README's Status section in step with the ROADMAP headline.
+
+## Android port boundary
+
+The `android` branch also builds the original app as a GameActivity cdylib. Read `docs/android.md` before changing platform code. This port explicitly permits the small Java Android API adapter and the isolated `platform/android/src/native.rs` JNI boundary (two documented pointer conversions); exported Android entry-point attributes are allowed in the app shell. These exceptions do not relax the engine/UI safety or layering rules. Test only explicitly authorized devices with serial-qualified adb commands. Do not reboot a device without explicit authorization. Keep signing credentials and machine-specific build output out of Git. Distribution APKs are signed release builds containing arm64-v8a only.

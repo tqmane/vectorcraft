@@ -188,6 +188,14 @@ fn collect(app: &mut VectorcraftApp, ctx: &egui::Context, ids: Option<Vec<NodeId
 /// folder picker: the last folder Export for Screens used, else the Desktop); the web downloads
 /// them, several as one zip.
 fn export(app: &mut VectorcraftApp, ids: Vec<u64>, files_each: usize) {
+    #[cfg(target_os = "android")]
+    let _android_resume = {
+        let ids = ids.clone();
+        rfd::resume_with(move |app: &mut crate::VectorcraftApp| {
+            export(app, ids.clone(), files_each);
+        })
+    };
+
     let mut p = json!({ "assets": ids });
     if io::is_web(app) {
         p["zip"] = json!(ids.len() * files_each > 1);
